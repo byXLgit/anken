@@ -14,11 +14,26 @@
         }
     </style>
 
+    <!-- Firebase Configuration - REPLACE WITH YOUR ACTUAL FIREBASE PROJECT CONFIG -->
+    <!-- !!! IMPORTANT: You MUST replace "YOUR_API_KEY", "YOUR_AUTH_DOMAIN", etc. with your actual Firebase project values. -->
+    <!-- You can find these values in your Firebase Console under Project settings > General. -->
+    <script>
+        window.__firebase_config = {
+            apiKey: "YOUR_API_KEY", // <-- ここをあなたのAPIキーに置き換えてください
+            authDomain: "YOUR_AUTH_DOMAIN", // 例: your-project-id.firebaseapp.com
+            projectId: "YOUR_PROJECT_ID", // 例: your-project-id
+            storageBucket: "YOUR_STORAGE_BUCKET", // 例: your-project-id.appspot.com
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID" // 例: 1:xxxxxxxxxx:web:xxxxxxxxxxxxxx
+        };
+        window.__app_id = "YOUR_APP_ID"; // 通常はwindow.__firebase_config.appIdと同じ
+    </script>
+
     <!-- Supabase Configuration -->
     <script>
         window.__supabase_config = {
-            supabaseUrl: "https://ntldptsliihnbvzlctdu.supabase.co", // 例: https://your-project.supabase.co
-            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50bGRwdHNsaWlobmJ2emxjdGR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk2MzcxNzYsImV4cCI6MjA2NTIxMzE3Nn0.h0guPRYtt2cXQa-kHKBVXhhYVgSs_nL2uQS9qWv0rKE" // 例: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            supabaseUrl: "https://ntldptsliihnbvzlctdu.supabase.co",
+            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50bGRwdHNsaWlobmJ2emxjdGR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk2MzcxNzYsImV4cCI6MjA2NTIxMzE3Nn0.h0guPRYtt2cXQa-kHKBVXhhYVgSs_nL2uQS9qWv0rKE"
         };
     </script>
 
@@ -43,7 +58,12 @@
     <!-- React and ReactDOM from CDN -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Your App.js script content directly embedded here -->
     <script type="text/babel">
@@ -513,136 +533,113 @@
           const [userId, setUserId] = useState('');
           const [isAuthReady, setIsAuthReady] = useState(false);
 
-          // Case data and input form state
-          const [cases, setCases] = useState([]);
-          const [newCaseName, setNewCaseName] = useState('');
-          const [newAssignee, setNewAssignee] = useState('');
-          const [newStatus, setNewStatus] = useState('未着手');
-          const [newStartDate, setNewStartDate] = useState('');
-          const [newDueDate, setNewDueDate] = useState('');
-          const [newBasePrice, setNewBasePrice] = useState('');
-          const [newPdfUrl, setNewPdfUrl] = useState('');
-          const [newEvents, setNewEvents] = useState([]);
-          const [newEventDate, setNewEventDate] = useState('');
-          const [newEventDescription, setNewEventDescription] = useState('');
-          const [newEvent_Type, setNewEvent_Type] = useState('提出');
-          const [newEventPdfUrl, setNewEventPdfUrl] = useState('');
-
-          const [loading, setLoading] = useState(true);
-          const [error, setError] = useState(null);
-
-          // Supabase初期化と認証
+          // 初期化と認証
           useEffect(() => {
-            try {
-              if (!window.supabaseClient) {
-                throw new Error("Supabaseクライアントが初期化されていません。");
-              }
-
-              setSupabaseClient(window.supabaseClient);
-              
-              // 匿名認証
-              const signInAnonymously = async () => {
-                try {
-                  // 匿名ユーザーとしてサインイン
-                  const { data: { user }, error } = await window.supabaseClient.auth.signInWithPassword({
-                    email: 'anonymous@example.com',
-                    password: 'anonymous'
-                  });
-                  
-                  if (error) {
-                    // 匿名ユーザーが存在しない場合は新規作成
-                    const { data: { user: newUser }, error: signUpError } = await window.supabaseClient.auth.signUp({
-                      email: 'anonymous@example.com',
-                      password: 'anonymous'
-                    });
-                    
-                    if (signUpError) throw signUpError;
-                    setUserId(newUser.id);
-                  } else {
-                    setUserId(user.id);
+              try {
+                  if (!window.supabaseClient) {
+                      throw new Error("Supabaseクライアントが初期化されていません。");
                   }
-                  
-                  setIsAuthReady(true);
-                  setLoading(false);
-                } catch (err) {
-                  console.error("匿名認証に失敗しました:", err);
-                  setError("認証に失敗しました。");
-                  setLoading(false);
-                }
-              };
 
-              signInAnonymously();
-            } catch (err) {
-              console.error("Supabase初期化エラー:", err);
-              setError("Supabaseの初期化に失敗しました。");
-              setLoading(false);
-            }
+                  setSupabaseClient(window.supabaseClient);
+                  
+                  // 認証
+                  const signIn = async () => {
+                    try {
+                      // メール/パスワードでサインイン
+                      const { data: { user }, error } = await window.supabaseClient.auth.signInWithPassword({
+                        email: 'user@example.com',
+                        password: 'password123'
+                      });
+                      
+                      if (error) {
+                        // ユーザーが存在しない場合は新規作成
+                        const { data: { user: newUser }, error: signUpError } = await window.supabaseClient.auth.signUp({
+                          email: 'user@example.com',
+                          password: 'password123'
+                        });
+                        
+                        if (signUpError) throw signUpError;
+                        setUserId(newUser.id);
+                      } else {
+                        setUserId(user.id);
+                      }
+                      
+                      setIsAuthReady(true);
+                      setLoading(false);
+                    } catch (err) {
+                      console.error("認証に失敗しました:", err);
+                      setError("認証に失敗しました。");
+                      setLoading(false);
+                    }
+                  };
+
+                  signIn();
+              } catch (err) {
+                  console.error("Supabase初期化エラー:", err);
+                  setError("Supabaseの初期化に失敗しました。");
+                  setLoading(false);
+              }
           }, []);
 
-          // リアルタイムデータ取得
+          // Real-time fetching of case data
           useEffect(() => {
             if (supabaseClient && isAuthReady && userId) {
               setError(null);
+              const casesCollectionRef = window.supabaseClient.from('cases');
+              // orderBy() might require an index, so we sort after fetching
+              const q = window.supabaseClient.from('cases').select();
 
-              // リアルタイムサブスクリプションの設定
-              const subscription = supabaseClient
-                .from('cases')
-                .on('*', (payload) => {
-                  // データが変更されたときに全データを再取得
-                  fetchCases();
-                })
-                .subscribe();
+              const unsubscribe = window.supabaseClient.from('cases').onSnapshot(q, (snapshot) => {
+                const fetchedCases = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data()
+                }));
+                // Sort by creation date (newest first)
+                fetchedCases.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
+                setCases(fetchedCases);
+              }, (err) => {
+                console.error("Error fetching cases:", err);
+                setError("案件データの取得に失敗しました。");
+              });
 
-              // 初期データ取得
-              fetchCases();
-
-              return () => {
-                subscription.unsubscribe();
-              };
+              return () => unsubscribe();
             }
           }, [supabaseClient, isAuthReady, userId]);
 
-          // 案件データの取得
-          const fetchCases = async () => {
-            try {
-              const { data, error } = await supabaseClient
-                .from('cases')
-                .select('*')
-                .order('created_at', { ascending: false });
 
-              if (error) throw error;
-
-              setCases(data);
-            } catch (err) {
-              console.error("案件データの取得に失敗しました:", err);
-              setError("案件データの取得に失敗しました。");
-            }
-          };
-
-          // 新規案件の追加
+          // Add a new case
           const handleAddCase = async () => {
             if (!newCaseName.trim() || !newAssignee.trim() || !supabaseClient) {
               showCustomAlert('案件名と担当者は必須です。');
               return;
             }
             try {
-              const { error } = await supabaseClient
-                .from('cases')
-                .insert([{
-                  name: newCaseName,
-                  assignee: newAssignee,
-                  status: newStatus,
-                  start_date: newStartDate,
-                  due_date: newDueDate,
-                  base_price: newBasePrice ? parseFloat(newBasePrice) : 0,
-                  pdf_url: newPdfUrl,
-                  events: newEvents,
-                  created_by: userId
-                }]);
-
-              if (error) throw error;
-
-              // フォームのクリア
+              const casesCollectionRef = window.supabaseClient.from('cases');
+              await window.supabaseClient.from('cases').insert({
+                name: newCaseName,
+                assignee: newAssignee,
+                status: newStatus,
+                startDate: newStartDate,
+                dueDate: newDueDate,
+                basePrice: newBasePrice ? parseFloat(newBasePrice) : 0, // Convert to number
+                pdfUrl: newPdfUrl, // Main case PDF URL
+                events: newEvents, // Events now include completed status, pdfUrl, and imageUrl from local state
+                createdAt: window.supabaseClient.from('cases').insert({
+                  data: {
+                    name: newCaseName,
+                    assignee: newAssignee,
+                    status: newStatus,
+                    startDate: newStartDate,
+                    dueDate: newDueDate,
+                    basePrice: newBasePrice ? parseFloat(newBasePrice) : 0, // Convert to number
+                    pdfUrl: newPdfUrl, // Main case PDF URL
+                    events: newEvents, // Events now include completed status, pdfUrl, and imageUrl from local state
+                    createdAt: new Date(),
+                    createdBy: userId
+                  }
+                }),
+                createdBy: userId
+              });
               setNewCaseName('');
               setNewAssignee('');
               setNewStatus('未着手');
@@ -650,77 +647,123 @@
               setNewDueDate('');
               setNewBasePrice('');
               setNewPdfUrl('');
-              setNewEvents([]);
-              setNewEventDate('');
-              setNewEventDescription('');
-              setNewEvent_Type('提出');
-              setNewEventPdfUrl('');
+              setNewEvents([]); // Clear event list
+              setNewEventDate(''); // Clear
+              setNewEventDescription(''); // Clear
+              setNewEvent_Type('提出'); // Reset type - '予定'から'提出'に変更
+              setNewEventPdfUrl(''); // Clear event PDF URL
             } catch (e) {
-              console.error("案件の追加に失敗しました:", e);
+              console.error("Error adding document: ", e);
               setError("案件の追加に失敗しました。");
             }
           };
 
-          // 案件の更新
+          // Add event to new case form (local state only)
+          const handleAddNewEvent = () => {
+            if (newEventDate && newEventDescription && newEvent_Type) {
+              setNewEvents([...newEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
+              setNewEventDate('');
+              setNewEventDescription('');
+              setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
+              setNewEventPdfUrl(''); // Clear event PDF URL
+            } else {
+              showCustomAlert('イベントの日付、内容、種類は必須です。');
+            }
+          };
+
+          // Remove event from new case form (local state only)
+          const handleRemoveNewEvent = (indexToRemove) => {
+            setNewEvents(newEvents.filter((_, i) => i !== indexToRemove));
+          };
+
+          // Toggle completion for event in new case form (local state only)
+          const handleToggleNewEventCompletion = (indexToToggle) => {
+            const updatedEvents = [...newEvents];
+            if (updatedEvents[indexToToggle]) {
+              updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
+              setNewEvents(updatedEvents);
+            }
+          };
+
+
+          // Function to open case edit page (full screen)
+          const openEditPage = (caseItem) => {
+            setEditingCase(caseItem);
+            setEditedCaseName(caseItem.name);
+            setEditedAssignee(caseItem.assignee);
+            setEditedStatus(caseItem.status);
+            setEditedStartDate(caseItem.startDate || '');
+            setEditedDueDate(caseItem.dueDate || '');
+            setEditedBasePrice(caseItem.basePrice || '');
+            setEditedPdfUrl(caseItem.pdfUrl || '');
+            setEditedEvents(caseItem.events || []);
+            setNewEventDate(''); // Clear for new input in edit page
+            setNewEventDescription(''); // Clear for new input in edit page
+            setNewEvent_Type('提出'); // Reset type for new input in edit page - '予定'から'提出'に変更
+            setNewEventPdfUrl(''); // Clear event PDF URL for new input in edit page
+            setCurrentView('edit'); // Change view to 'edit'
+          };
+
+          // Function to close edit page and return to list view
+          const closeEditPage = () => {
+            setCurrentView('list'); // Change view back to 'list'
+            setEditingCase(null); // Clear editing case
+          };
+
+
+          // Add event to edited case (local state only)
+          const handleAddEditedEvent = () => {
+            if (newEventDate && newEventDescription && newEvent_Type) {
+              setEditedEvents([...editedEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
+              setNewEventDate('');
+              setNewEventDescription('');
+              setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
+              setNewEventPdfUrl(''); // Clear event PDF URL
+            } else {
+              showCustomAlert('イベントの日付、内容、種類は必須です。');
+            }
+          };
+
+          // Remove event from edited case (local state only)
+          const handleRemoveEditedEvent = (indexToRemove) => {
+            setEditedEvents(editedEvents.filter((_, index) => index !== indexToRemove));
+          };
+
+          // Toggle completion for event in edited case (local state only)
+          const handleToggleEditedEventCompletion = (indexToToggle) => {
+            const updatedEvents = [...editedEvents];
+            if (updatedEvents[indexToToggle]) {
+              updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
+              setEditedEvents(updatedEvents);
+            }
+          };
+
+
+          // Update case (persists all local changes to Firestore)
           const handleUpdateCase = async () => {
             if (!editingCase || !editedCaseName.trim() || !editedAssignee.trim() || !supabaseClient) {
               showCustomAlert('案件名と担当者は必須です。');
               return;
             }
             try {
-              const { error } = await supabaseClient
-                .from('cases')
-                .update({
-                  name: editedCaseName,
-                  assignee: editedAssignee,
-                  status: editedStatus,
-                  start_date: editedStartDate,
-                  due_date: editedDueDate,
-                  base_price: editedBasePrice ? parseFloat(editedBasePrice) : 0,
-                  pdf_url: editedPdfUrl,
-                  events: editedEvents,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', editingCase.id);
-
-              if (error) throw error;
-
-              closeEditPage();
+              const caseDocRef = window.supabaseClient.from('cases').update(editingCase.id).set({
+                name: editedCaseName,
+                assignee: editedAssignee,
+                status: editedStatus,
+                startDate: editedStartDate,
+                dueDate: editedDueDate,
+                basePrice: editedBasePrice ? parseFloat(editedBasePrice) : 0,
+                pdfUrl: editedPdfUrl,
+                events: editedEvents, // Save updated event list (including completed status, pdfUrl, and imageUrl)
+                updatedAt: new Date() // Record update timestamp
+              });
+              closeEditPage(); // Close edit page after update
             } catch (e) {
-              console.error("案件の更新に失敗しました:", e);
+              console.error("Error updating document: ", e);
               setError("案件の更新に失敗しました。");
             }
           };
 
-          // Edit modal related state
-          const [isEditModalOpen, setIsEditModalOpen] = useState(false); // This state is no longer used for full-screen edit, but kept for clarity if modal was reintroduced
-          const [editingCase, setEditingCase] = useState(null);
-          const [editedCaseName, setEditedCaseName] = useState(''); // 修正: useStateで初期化
-          const [editedAssignee, setEditedAssignee] = useState(''); // 修正: useStateで初期化
-          const [editedStatus, setEditedStatus] = useState(''); // 修正: useStateで初期化
-          const [editedStartDate, setEditedStartDate] = useState(''); // 修正: useStateで初期化 - Added useState for proper initialization
-          const [editedDueDate, setEditedDueDate] = useState(''); // 修正: useStateで初期化 - Added useState for proper initialization
-          const [editedBasePrice, setEditedBasePrice] = useState(''); // 修正: useStateで初期化
-          const [editedPdfUrl, setEditedPdfUrl] = useState(''); // 修正: useStateで初期化
-          const [editedEvents, setEditedEvents] = useState([]); // Timeline events being edited
-
-
-          // New state for managing the current application view: 'list' or 'edit'
-          const [currentView, setCurrentView] = useState('list'); // 'list' or 'edit'
-
-          // State for managing the display mode within the list view: 'card', 'table', or 'timeline', 'calendar'
-          const [listDisplayMode, setListDisplayMode] = useState('calendar'); // 'card', 'table', 'timeline', 'calendar'
-
-
-          // Custom alert state
-          const [showAlert, setShowAlert] = useState(false);
-          const [alertMessage, setAlertMessage] = useState(''); // 修正: useStateで初期化
-
-          // Function to show custom alert
-          const showCustomAlert = (message) => {
-            setAlertMessage(message);
-            setShowAlert(true);
-          };
 
           if (!isAuthReady || loading) {
             return (
