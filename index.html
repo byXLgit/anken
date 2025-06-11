@@ -208,8 +208,8 @@
 
         // New component for vertical timeline for a single case
         const VerticalCaseTimeline = ({ caseItem, displayStartDate, displayEndDate, heightPerDay, openEditPage, onCaseHover }) => {
-          const caseStartDate = new Date(caseItem.startDate);
-          const caseDueDate = new Date(caseItem.dueDate);
+          const caseStartDate = new Date(caseItem.start_date);
+          const caseDueDate = new Date(caseItem.due_date);
 
           // Clamp case start/end dates to display range for visual representation
           const effectiveStartDate = new Date(Math.max(caseStartDate.getTime(), displayStartDate.getTime()));
@@ -402,9 +402,9 @@
 
           // Filter cases that have a valid date range, overlap with the display range, and are not '完了'
           const visibleCases = cases.filter(caseItem =>
-            caseItem.startDate && caseItem.dueDate &&
-            new Date(caseItem.dueDate) >= displayStartDate &&
-            new Date(caseItem.startDate) <= displayEndDate &&
+            caseItem.start_date && caseItem.due_date &&
+            new Date(caseItem.due_date) >= displayStartDate &&
+            new Date(caseItem.start_date) <= displayEndDate &&
             caseItem.status !== '完了' // '完了'ステータスの案件を除外
           );
 
@@ -482,7 +482,6 @@
                           openEditPage={openEditPage}
                           onCaseHover={handleCaseHover} // ホバーイベントを親に伝える
                         />
-                        {/* Removed 案件名を欄外の枠の左下に表示 from here */}
                       </div>
                     );
                   })}
@@ -494,8 +493,8 @@
                 {hoveredCaseInfo ? (
                   <div className="text-gray-800 text-sm">
                     <p className="font-semibold">案件名: {hoveredCaseInfo.name}</p>
-                    <p>開始日: {hoveredCaseInfo.startDate || '-'}</p>
-                    <p>完了予定日: {hoveredCaseInfo.dueDate || '-'}</p>
+                    <p>開始日: {hoveredCaseInfo.start_date || '-'}</p>
+                    <p>完了予定日: {hoveredCaseInfo.due_date || '-'}</p>
                     <p>ステータス: {hoveredCaseInfo.status}</p>
                   </div>
                 ) : (
