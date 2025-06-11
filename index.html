@@ -14,53 +14,33 @@
         }
     </style>
 
-    <!-- Firebase Configuration - REPLACE WITH YOUR ACTUAL FIREBASE PROJECT CONFIG -->
-    <!-- !!! IMPORTANT: You MUST replace "YOUR_API_KEY", "YOUR_AUTH_DOMAIN", etc. with your actual Firebase project values. -->
-    <!-- You can find these values in your Firebase Console under Project settings > General. -->
+    <!-- Supabase Configuration -->
     <script>
-        window.__firebase_config = {
-            apiKey: "YOUR_API_KEY", // <-- ここをあなたのAPIキーに置き換えてください
-            authDomain: "YOUR_AUTH_DOMAIN", // 例: your-project-id.firebaseapp.com
-            projectId: "YOUR_PROJECT_ID", // 例: your-project-id
-            storageBucket: "YOUR_STORAGE_BUCKET", // 例: your-project-id.appspot.com
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID" // 例: 1:xxxxxxxxxx:web:xxxxxxxxxxxxxx
+        window.__supabase_config = {
+            supabaseUrl: "https://ntldptsliihnbvzlctdu.supabase.co", // 例: https://your-project.supabase.co
+            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50bGRwdHNsaWlobmJ2emxjdGR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk2MzcxNzYsImV4cCI6MjA2NTIxMzE3Nn0.h0guPRYtt2cXQa-kHKBVXhhYVgSs_nL2uQS9qWv0rKE" // 例: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         };
-        window.__app_id = "YOUR_APP_ID"; // 通常はwindow.__firebase_config.appIdと同じ
     </script>
+
+    <!-- Supabase Client Library -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- Firebase SDKs -->
-    <!-- window.firebaseオブジェクトを構築するスクリプトを先に実行 -->
+    <!-- Supabase Client Initialization -->
     <script type="module">
-        // Firebaseモジュールをインポートし、window.firebaseオブジェクトに公開
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Supabaseクライアントの初期化
+        const supabase = window.supabase.createClient(
+            window.__supabase_config.supabaseUrl,
+            window.__supabase_config.supabaseKey
+        );
 
-        window.firebase = {
-            initializeApp,
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged,
-            getFirestore,
-            collection,
-            addDoc,
-            onSnapshot,
-            query,
-            orderBy,
-            serverTimestamp,
-            doc,
-            updateDoc,
-            arrayUnion
-        };
+        // グローバルスコープに公開
+        window.supabaseClient = supabase;
     </script>
 
     <!-- React and ReactDOM from CDN -->
-    <!-- These are global, so no import needed in App.js -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -528,33 +508,189 @@
 
 
         function App() {
-          // Firebase関連のstate
-          const [db, setDb] = useState(null);
-          const [auth, setAuth] = useState(null);
+          // Supabase関連のstate
+          const [supabaseClient, setSupabaseClient] = useState(null);
           const [userId, setUserId] = useState('');
           const [isAuthReady, setIsAuthReady] = useState(false);
-          // const [isLoggedIn, setIsLoggedIn] = useState(false); // Removed state for login status
-
 
           // Case data and input form state
           const [cases, setCases] = useState([]);
           const [newCaseName, setNewCaseName] = useState('');
           const [newAssignee, setNewAssignee] = useState('');
-          const [newStatus, setNewStatus] = useState('未着手'); // Default status
-          const [newStartDate, setNewStartDate] = useState(''); // Start Date
+          const [newStatus, setNewStatus] = useState('未着手');
+          const [newStartDate, setNewStartDate] = useState('');
           const [newDueDate, setNewDueDate] = useState('');
-          const [newBasePrice, setNewBasePrice] = useState(''); // 修正: useStateで初期化
-          // const [newRevisionCount, setNewRevisionCount] = useState(0); // Revision Count - 削除
-          // const [newDifficulty, setNewDifficulty] = useState('中'); // Design Difficulty - 削除
-          const [newPdfUrl, setNewPdfUrl] = useState(''); // PDF URL (for main case) - Added useState for proper initialization
-          const [newEvents, setNewEvents] = useState([]); // New timeline events
+          const [newBasePrice, setNewBasePrice] = useState('');
+          const [newPdfUrl, setNewPdfUrl] = useState('');
+          const [newEvents, setNewEvents] = useState([]);
           const [newEventDate, setNewEventDate] = useState('');
-          const [newEventDescription, setNewEventDescription] = useState(''); // 修正: useStateで初期化
-          const [newEvent_Type, setNewEvent_Type] = useState('提出'); // New: for event type selection - '予定'から'提出'に変更
-          const [newEventPdfUrl, setNewEventPdfUrl] = useState(''); // 修正: useStateで初期化
+          const [newEventDescription, setNewEventDescription] = useState('');
+          const [newEvent_Type, setNewEvent_Type] = useState('提出');
+          const [newEventPdfUrl, setNewEventPdfUrl] = useState('');
 
           const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
+
+          // Supabase初期化と認証
+          useEffect(() => {
+            try {
+              if (!window.supabaseClient) {
+                throw new Error("Supabaseクライアントが初期化されていません。");
+              }
+
+              setSupabaseClient(window.supabaseClient);
+              
+              // 匿名認証
+              const signInAnonymously = async () => {
+                try {
+                  // 匿名ユーザーとしてサインイン
+                  const { data: { user }, error } = await window.supabaseClient.auth.signInWithPassword({
+                    email: 'anonymous@example.com',
+                    password: 'anonymous'
+                  });
+                  
+                  if (error) {
+                    // 匿名ユーザーが存在しない場合は新規作成
+                    const { data: { user: newUser }, error: signUpError } = await window.supabaseClient.auth.signUp({
+                      email: 'anonymous@example.com',
+                      password: 'anonymous'
+                    });
+                    
+                    if (signUpError) throw signUpError;
+                    setUserId(newUser.id);
+                  } else {
+                    setUserId(user.id);
+                  }
+                  
+                  setIsAuthReady(true);
+                  setLoading(false);
+                } catch (err) {
+                  console.error("匿名認証に失敗しました:", err);
+                  setError("認証に失敗しました。");
+                  setLoading(false);
+                }
+              };
+
+              signInAnonymously();
+            } catch (err) {
+              console.error("Supabase初期化エラー:", err);
+              setError("Supabaseの初期化に失敗しました。");
+              setLoading(false);
+            }
+          }, []);
+
+          // リアルタイムデータ取得
+          useEffect(() => {
+            if (supabaseClient && isAuthReady && userId) {
+              setError(null);
+
+              // リアルタイムサブスクリプションの設定
+              const subscription = supabaseClient
+                .from('cases')
+                .on('*', (payload) => {
+                  // データが変更されたときに全データを再取得
+                  fetchCases();
+                })
+                .subscribe();
+
+              // 初期データ取得
+              fetchCases();
+
+              return () => {
+                subscription.unsubscribe();
+              };
+            }
+          }, [supabaseClient, isAuthReady, userId]);
+
+          // 案件データの取得
+          const fetchCases = async () => {
+            try {
+              const { data, error } = await supabaseClient
+                .from('cases')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+              if (error) throw error;
+
+              setCases(data);
+            } catch (err) {
+              console.error("案件データの取得に失敗しました:", err);
+              setError("案件データの取得に失敗しました。");
+            }
+          };
+
+          // 新規案件の追加
+          const handleAddCase = async () => {
+            if (!newCaseName.trim() || !newAssignee.trim() || !supabaseClient) {
+              showCustomAlert('案件名と担当者は必須です。');
+              return;
+            }
+            try {
+              const { error } = await supabaseClient
+                .from('cases')
+                .insert([{
+                  name: newCaseName,
+                  assignee: newAssignee,
+                  status: newStatus,
+                  start_date: newStartDate,
+                  due_date: newDueDate,
+                  base_price: newBasePrice ? parseFloat(newBasePrice) : 0,
+                  pdf_url: newPdfUrl,
+                  events: newEvents,
+                  created_by: userId
+                }]);
+
+              if (error) throw error;
+
+              // フォームのクリア
+              setNewCaseName('');
+              setNewAssignee('');
+              setNewStatus('未着手');
+              setNewStartDate('');
+              setNewDueDate('');
+              setNewBasePrice('');
+              setNewPdfUrl('');
+              setNewEvents([]);
+              setNewEventDate('');
+              setNewEventDescription('');
+              setNewEvent_Type('提出');
+              setNewEventPdfUrl('');
+            } catch (e) {
+              console.error("案件の追加に失敗しました:", e);
+              setError("案件の追加に失敗しました。");
+            }
+          };
+
+          // 案件の更新
+          const handleUpdateCase = async () => {
+            if (!editingCase || !editedCaseName.trim() || !editedAssignee.trim() || !supabaseClient) {
+              showCustomAlert('案件名と担当者は必須です。');
+              return;
+            }
+            try {
+              const { error } = await supabaseClient
+                .from('cases')
+                .update({
+                  name: editedCaseName,
+                  assignee: editedAssignee,
+                  status: editedStatus,
+                  start_date: editedStartDate,
+                  due_date: editedDueDate,
+                  base_price: editedBasePrice ? parseFloat(editedBasePrice) : 0,
+                  pdf_url: editedPdfUrl,
+                  events: editedEvents,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', editingCase.id);
+
+              if (error) throw error;
+
+              closeEditPage();
+            } catch (e) {
+              console.error("案件の更新に失敗しました:", e);
+              setError("案件の更新に失敗しました。");
+            }
+          };
 
           // Edit modal related state
           const [isEditModalOpen, setIsEditModalOpen] = useState(false); // This state is no longer used for full-screen edit, but kept for clarity if modal was reintroduced
@@ -565,8 +701,6 @@
           const [editedStartDate, setEditedStartDate] = useState(''); // 修正: useStateで初期化 - Added useState for proper initialization
           const [editedDueDate, setEditedDueDate] = useState(''); // 修正: useStateで初期化 - Added useState for proper initialization
           const [editedBasePrice, setEditedBasePrice] = useState(''); // 修正: useStateで初期化
-          // const [editedRevisionCount, setEditedRevisionCount] = useState(0); // Revision Count - 削除
-          // const [editedDifficulty, setEditedDifficulty] = ''; // 修正: useStateで初期化 - 削除
           const [editedPdfUrl, setEditedPdfUrl] = useState(''); // 修正: useStateで初期化
           const [editedEvents, setEditedEvents] = useState([]); // Timeline events being edited
 
@@ -587,233 +721,6 @@
             setAlertMessage(message);
             setShowAlert(true);
           };
-
-          // Firebase initialization and authentication
-          useEffect(() => {
-            try {
-              // Firebase設定とアプリIDをグローバルスコープから取得
-              let firebaseConfig;
-              if (typeof __firebase_config === 'string' && __firebase_config.trim() !== '') {
-                  firebaseConfig = JSON.parse(__firebase_config);
-              } else if (typeof __firebase_config === 'object' && __firebase_config !== null) {
-                  firebaseConfig = __firebase_config;
-              } else {
-                  firebaseConfig = {}; // デフォルトの空オブジェクト
-              }
-
-              // Log the Firebase config to help with debugging
-              console.log("Firebase config loaded:", firebaseConfig);
-
-              const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-              // window.firebase が利用可能か確認
-              if (!window.firebase) {
-                throw new Error("window.firebase is not defined. Firebase SDKs might not have loaded correctly.");
-              }
-
-              const app = window.firebase.initializeApp(firebaseConfig);
-              const firestoreDb = window.firebase.getFirestore(app);
-              const firebaseAuth = window.firebase.getAuth(app);
-
-              setDb(firestoreDb);
-              setAuth(firebaseAuth);
-
-              const unsubscribe = window.firebase.onAuthStateChanged(firebaseAuth, async (user) => {
-                if (!user) {
-                  // If no user is logged in (or after logout), sign in anonymously
-                  try {
-                    await window.firebase.signInAnonymously(firebaseAuth);
-                  } catch (authError) {
-                    console.error("Firebase anonymous authentication failed:", authError);
-                    setError("匿名認証に失敗しました。Firebaseコンソールで匿名認証を有効にしてください。"); // エラーメッセージを具体化
-                  }
-                }
-                const currentUserId = firebaseAuth.currentUser?.uid || crypto.randomUUID();
-                setUserId(currentUserId); // Ensure userId is always set
-                console.log("Current Firebase User ID:", currentUserId); // ★追加: ユーザーIDをコンソールに出力
-                setIsAuthReady(true);
-                setLoading(false); // Set loading to false after auth state is determined
-              });
-
-              return () => unsubscribe();
-            } catch (err) {
-              console.error("Firebase initialization error:", err);
-              setError("Firebaseの初期化に失敗しました。"); // エラーメッセージを具体化
-              setLoading(false);
-            }
-          }, []);
-
-          // Real-time fetching of case data
-          useEffect(() => {
-            if (db && isAuthReady && userId) {
-              setError(null);
-              const casesCollectionRef = window.firebase.collection(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/public/data/cases`);
-              // orderBy() might require an index, so we sort after fetching
-              const q = window.firebase.query(casesCollectionRef);
-
-              const unsubscribe = window.firebase.onSnapshot(q, (snapshot) => {
-                const fetchedCases = snapshot.docs.map(doc => ({
-                  id: doc.id,
-                  ...doc.data()
-                }));
-                // Sort by creation date (newest first)
-                fetchedCases.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
-                setCases(fetchedCases);
-              }, (err) => {
-                console.error("Error fetching cases:", err);
-                setError("案件データの取得に失敗しました。");
-              });
-
-              return () => unsubscribe();
-            }
-          }, [db, isAuthReady, userId]);
-
-
-          // Add a new case
-          const handleAddCase = async () => {
-            if (!newCaseName.trim() || !newAssignee.trim() || !db) {
-              showCustomAlert('案件名と担当者は必須です。');
-              return;
-            }
-            try {
-              const casesCollectionRef = window.firebase.collection(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/public/data/cases`);
-              await window.firebase.addDoc(casesCollectionRef, {
-                name: newCaseName,
-                assignee: newAssignee,
-                status: newStatus,
-                startDate: newStartDate,
-                dueDate: newDueDate,
-                basePrice: newBasePrice ? parseFloat(newBasePrice) : 0, // Convert to number
-                pdfUrl: newPdfUrl, // Main case PDF URL
-                events: newEvents, // Events now include completed status, pdfUrl, and imageUrl from local state
-                createdAt: window.firebase.serverTimestamp(),
-                createdBy: userId
-              });
-              setNewCaseName('');
-              setNewAssignee('');
-              setNewStatus('未着手');
-              setNewStartDate('');
-              setNewDueDate('');
-              setNewBasePrice('');
-              setNewPdfUrl('');
-              setNewEvents([]); // Clear event list
-              setNewEventDate(''); // Clear
-              setNewEventDescription(''); // Clear
-              setNewEvent_Type('提出'); // Reset type - '予定'から'提出'に変更
-              setNewEventPdfUrl(''); // Clear event PDF URL
-            } catch (e) {
-              console.error("Error adding document: ", e);
-              setError("案件の追加に失敗しました。");
-            }
-          };
-
-          // Add event to new case form (local state only)
-          const handleAddNewEvent = () => {
-            if (newEventDate && newEventDescription && newEvent_Type) {
-              setNewEvents([...newEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
-              setNewEventDate('');
-              setNewEventDescription('');
-              setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
-              setNewEventPdfUrl(''); // Clear event PDF URL
-            } else {
-              showCustomAlert('イベントの日付、内容、種類は必須です。');
-            }
-          };
-
-          // Remove event from new case form (local state only)
-          const handleRemoveNewEvent = (indexToRemove) => {
-            setNewEvents(newEvents.filter((_, i) => i !== indexToRemove));
-          };
-
-          // Toggle completion for event in new case form (local state only)
-          const handleToggleNewEventCompletion = (indexToToggle) => {
-            const updatedEvents = [...newEvents];
-            if (updatedEvents[indexToToggle]) {
-              updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
-              setNewEvents(updatedEvents);
-            }
-          };
-
-
-          // Function to open case edit page (full screen)
-          const openEditPage = (caseItem) => {
-            setEditingCase(caseItem);
-            setEditedCaseName(caseItem.name);
-            setEditedAssignee(caseItem.assignee);
-            setEditedStatus(caseItem.status);
-            setEditedStartDate(caseItem.startDate || '');
-            setEditedDueDate(caseItem.dueDate || '');
-            setEditedBasePrice(caseItem.basePrice || '');
-            setEditedPdfUrl(caseItem.pdfUrl || '');
-            setEditedEvents(caseItem.events || []);
-            setNewEventDate(''); // Clear for new input in edit page
-            setNewEventDescription(''); // Clear for new input in edit page
-            setNewEvent_Type('提出'); // Reset type for new input in edit page - '予定'から'提出'に変更
-            setNewEventPdfUrl(''); // Clear event PDF URL for new input in edit page
-            setCurrentView('edit'); // Change view to 'edit'
-          };
-
-          // Function to close edit page and return to list view
-          const closeEditPage = () => {
-            setCurrentView('list'); // Change view back to 'list'
-            setEditingCase(null); // Clear editing case
-          };
-
-
-          // Add event to edited case (local state only)
-          const handleAddEditedEvent = () => {
-            if (newEventDate && newEventDescription && newEvent_Type) {
-              setEditedEvents([...editedEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
-              setNewEventDate('');
-              setNewEventDescription('');
-              setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
-              setNewEventPdfUrl(''); // Clear event PDF URL
-            } else {
-              showCustomAlert('イベントの日付、内容、種類は必須です。');
-            }
-          };
-
-          // Remove event from edited case (local state only)
-          const handleRemoveEditedEvent = (indexToRemove) => {
-            setEditedEvents(editedEvents.filter((_, index) => index !== indexToRemove));
-          };
-
-          // Toggle completion for event in edited case (local state only)
-          const handleToggleEditedEventCompletion = (indexToToggle) => {
-            const updatedEvents = [...editedEvents];
-            if (updatedEvents[indexToToggle]) {
-              updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
-              setEditedEvents(updatedEvents);
-            }
-          };
-
-
-          // Update case (persists all local changes to Firestore)
-          const handleUpdateCase = async () => {
-            if (!editingCase || !editedCaseName.trim() || !editedAssignee.trim() || !db) {
-              showCustomAlert('案件名と担当者は必須です。');
-              return;
-            }
-            try {
-              const caseDocRef = window.firebase.doc(db, `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/public/data/cases`, editingCase.id);
-              await window.firebase.updateDoc(caseDocRef, {
-                name: editedCaseName,
-                assignee: editedAssignee,
-                status: editedStatus,
-                startDate: editedStartDate,
-                dueDate: editedDueDate,
-                basePrice: editedBasePrice ? parseFloat(editedBasePrice) : 0,
-                pdfUrl: editedPdfUrl,
-                events: editedEvents, // Save updated event list (including completed status, pdfUrl, and imageUrl)
-                updatedAt: window.firebase.serverTimestamp() // Record update timestamp
-              });
-              closeEditPage(); // Close edit page after update
-            } catch (e) {
-              console.error("Error updating document: ", e);
-              setError("案件の更新に失敗しました。");
-            }
-          };
-
 
           if (!isAuthReady || loading) {
             return (
