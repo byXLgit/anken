@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>デザイン案件管理</title>
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Inter (Optional, but recommended for consistent design) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -636,11 +636,19 @@
 
                     // リアルタイムサブスクリプションの設定
                     const subscription = supabaseClient
-                        .from('cases')
-                        .on('*', (payload) => {
-                            // データが変更されたときに全データを再取得
-                            fetchCases();
-                        })
+                        .channel('cases_changes')
+                        .on(
+                            'postgres_changes',
+                            {
+                                event: '*',
+                                schema: 'public',
+                                table: 'cases'
+                            },
+                            (payload) => {
+                                // データが変更されたときに全データを再取得
+                                fetchCases();
+                            }
+                        )
                         .subscribe();
 
                     // 初期データ取得
