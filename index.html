@@ -1068,12 +1068,12 @@
                                                         caseItem.status === '確認待ち' ? 'text-yellow-600' :
                                                         caseItem.status === 'キャンセル' ? 'text-red-600' : 'text-gray-600'
                                                     }`}>{caseItem.status}</span></p>
-                                                    {caseItem.startDate && <p className="text-gray-600 text-xs">開始日: {caseItem.startDate}</p>}
-                                                    {caseItem.dueDate && <p className="text-gray-600 text-xs">完了予定日: {caseItem.dueDate}</p>}
-                                                    {caseItem.basePrice > 0 && <p className="text-gray-600 text-xs">基本料金: {caseItem.basePrice.toLocaleString()}円</p>}
-                                                    {caseItem.pdfUrl && (
+                                                    {caseItem.start_date && <p className="text-gray-600 text-xs">開始日: {caseItem.start_date}</p>}
+                                                    {caseItem.due_date && <p className="text-gray-600 text-xs">完了予定日: {caseItem.due_date}</p>}
+                                                    {caseItem.base_price > 0 && <p className="text-gray-600 text-xs">基本料金: {caseItem.base_price.toLocaleString()}円</p>}
+                                                    {caseItem.pdf_url && (
                                                         <p className="text-gray-600 text-xs">
-                                                            PDF: <a href={caseItem.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">表示</a>
+                                                            PDF: <a href={caseItem.pdf_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">表示</a>
                                                         </p>
                                                     )}
                                                     {caseItem.events && caseItem.events.length > 0 && (
@@ -1089,18 +1089,8 @@
                                                             </ul>
                                                         </div>
                                                     )}
-                                                    {caseItem.createdAt && (
-                                                        <p className="text-gray-500 text-xs mt-auto pt-2">
-                                                            作成日: {new Date(caseItem.createdAt.toDate()).toLocaleString()}
-                                                        </p>
-                                                    )}
-                                                    {caseItem.createdBy && (
-                                                        <p className="text-gray-500 text-xs">
-                                                            作成者ID: <span className="break-all">{caseItem.createdBy}</span>
-                                                        </p>
-                                                    )}
                                                     <button
-                                                        onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
+                                                        onClick={() => openEditPage(caseItem)}
                                                         className="mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-sm"
                                                     >
                                                         詳細
@@ -1121,27 +1111,41 @@
                                         <div className="w-full overflow-x-auto">
                                             <table className="min-w-full bg-white border border-gray-200 rounded-lg">
                                                 <thead>
-                                                    <tr className="bg-gray-100 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"><th className="py-3 px-4 border-b">案件名</th><th className="py-3 px-4 border-b">担当者</th><th className="py-3 px-4 border-b">ステータス</th><th className="py-3 px-4 border-b">基本料金</th><th className="py-3 px-4 border-b">タスク</th><th className="py-3 px-4 border-b">操作</th></tr>
+                                                    <tr className="bg-gray-100 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                                                        <th className="py-3 px-4 border-b">案件名</th>
+                                                        <th className="py-3 px-4 border-b">担当者</th>
+                                                        <th className="py-3 px-4 border-b">ステータス</th>
+                                                        <th className="py-3 px-4 border-b">基本料金</th>
+                                                        <th className="py-3 px-4 border-b">タスク</th>
+                                                        <th className="py-3 px-4 border-b">操作</th>
+                                                    </tr>
                                                 </thead>
                                                 <tbody>
                                                     {cases.map((caseItem) => (
-                                                        <tr key={caseItem.id} className="border-b border-gray-200 hover:bg-gray-50"><td className="py-3 px-4 text-sm text-gray-800 font-semibold">{caseItem.name}</td><td className="py-3 px-4 text-sm text-gray-600">{caseItem.assignee}</td><td className="py-3 px-4 text-sm text-gray-600">
-                                                            <span className={`font-medium ${
-                                                                caseItem.status === '完了' ? 'text-green-600' :
-                                                                caseItem.status === '進行中' ? 'text-blue-600' :
-                                                                caseItem.status === '確認待ち' ? 'text-yellow-600' :
-                                                                caseItem.status === 'キャンセル' ? 'text-red-600' : 'text-gray-600'
-                                                            }`}>{caseItem.status}</span>
-                                                        </td><td className="py-3 px-4 text-sm text-gray-600">{caseItem.basePrice ? `${caseItem.basePrice.toLocaleString()}円` : '-'}</td><td className="py-3 px-4 text-sm text-gray-600">
-                                                            {caseItem.events ? caseItem.events.length : 0} {/* イベントの数を表示 */}
-                                                        </td><td className="py-3 px-4">
-                                                            <button
-                                                                onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
-                                                                className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xs"
-                                                            >
-                                                                詳細
-                                                            </button>
-                                                        </td></tr>
+                                                        <tr key={caseItem.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                                            <td className="py-3 px-4 text-sm text-gray-800 font-semibold">{caseItem.name}</td>
+                                                            <td className="py-3 px-4 text-sm text-gray-600">{caseItem.assignee}</td>
+                                                            <td className="py-3 px-4 text-sm text-gray-600">
+                                                                <span className={`font-medium ${
+                                                                    caseItem.status === '完了' ? 'text-green-600' :
+                                                                    caseItem.status === '進行中' ? 'text-blue-600' :
+                                                                    caseItem.status === '確認待ち' ? 'text-yellow-600' :
+                                                                    caseItem.status === 'キャンセル' ? 'text-red-600' : 'text-gray-600'
+                                                                }`}>{caseItem.status}</span>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-sm text-gray-600">{caseItem.base_price ? `${caseItem.base_price.toLocaleString()}円` : '-'}</td>
+                                                            <td className="py-3 px-4 text-sm text-gray-600">
+                                                                {caseItem.events ? caseItem.events.length : 0}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <button
+                                                                    onClick={() => openEditPage(caseItem)}
+                                                                    className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xs"
+                                                                >
+                                                                    詳細
+                                                                </button>
+                                                            </td>
+                                                        </tr>
                                                     ))}
                                                 </tbody>
                                             </table>
@@ -1157,19 +1161,19 @@
                                     {cases.filter(caseItem => caseItem.status !== '完了').length === 0 ? (
                                         <p className="text-gray-500 text-center">表示する案件がありません。</p>
                                     ) : (
-                                        <div className="w-full overflow-x-auto space-y-4"> {/* Changed to div structure */}
+                                        <div className="w-full overflow-x-auto space-y-4">
                                             {cases.filter(caseItem => caseItem.status !== '完了').map((caseItem) => (
                                                 <div key={caseItem.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                                                     <div className="font-semibold text-gray-800 mb-2">{caseItem.name}</div>
                                                     <TimelineBar
-                                                        startDate={caseItem.startDate}
-                                                        dueDate={caseItem.dueDate}
+                                                        startDate={caseItem.start_date}
+                                                        dueDate={caseItem.due_date}
                                                         status={caseItem.status}
                                                         events={caseItem.events}
                                                     />
                                                     <div className="mt-4 text-right">
                                                         <button
-                                                            onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
+                                                            onClick={() => openEditPage(caseItem)}
                                                             className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xs"
                                                         >
                                                             詳細
