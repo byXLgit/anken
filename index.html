@@ -535,6 +535,47 @@
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
 
+            // 案件データと入力フォームのstate
+            const [cases, setCases] = useState([]);
+            const [newCaseName, setNewCaseName] = useState('');
+            const [newAssignee, setNewAssignee] = useState('');
+            const [newStatus, setNewStatus] = useState('未着手');
+            const [newStartDate, setNewStartDate] = useState('');
+            const [newDueDate, setNewDueDate] = useState('');
+            const [newBasePrice, setNewBasePrice] = useState('');
+            const [newPdfUrl, setNewPdfUrl] = useState('');
+            const [newEvents, setNewEvents] = useState([]);
+            const [newEventDate, setNewEventDate] = useState('');
+            const [newEventDescription, setNewEventDescription] = useState('');
+            const [newEvent_Type, setNewEvent_Type] = useState('提出');
+            const [newEventPdfUrl, setNewEventPdfUrl] = useState('');
+
+            // 編集関連のstate
+            const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+            const [editingCase, setEditingCase] = useState(null);
+            const [editedCaseName, setEditedCaseName] = useState('');
+            const [editedAssignee, setEditedAssignee] = useState('');
+            const [editedStatus, setEditedStatus] = useState('');
+            const [editedStartDate, setEditedStartDate] = useState('');
+            const [editedDueDate, setEditedDueDate] = useState('');
+            const [editedBasePrice, setEditedBasePrice] = useState('');
+            const [editedPdfUrl, setEditedPdfUrl] = useState('');
+            const [editedEvents, setEditedEvents] = useState([]);
+
+            // ビュー関連のstate
+            const [currentView, setCurrentView] = useState('list');
+            const [listDisplayMode, setListDisplayMode] = useState('calendar');
+
+            // アラート関連のstate
+            const [showAlert, setShowAlert] = useState(false);
+            const [alertMessage, setAlertMessage] = useState('');
+
+            // アラート表示関数
+            const showCustomAlert = (message) => {
+                setAlertMessage(message);
+                setShowAlert(true);
+            };
+
             // 初期化と認証
             useEffect(() => {
                 try {
@@ -588,763 +629,41 @@
                 }
             }, []);
 
-            // Real-time fetching of case data
-            useEffect(() => {
-                if (supabaseClient && isAuthReady && userId) {
-                    setError(null);
-                    const casesCollectionRef = window.supabaseClient.from('cases');
-                    // orderBy() might require an index, so we sort after fetching
-                    const q = window.supabaseClient.from('cases').select();
-
-                    const unsubscribe = window.supabaseClient.from('cases').onSnapshot(q, (snapshot) => {
-                        const fetchedCases = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        // Sort by creation date (newest first)
-                        fetchedCases.sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
-                        setCases(fetchedCases);
-                    }, (err) => {
-                        console.error("Error fetching cases:", err);
-                        setError("案件データの取得に失敗しました。");
-                    });
-
-                    return () => unsubscribe();
-                }
-            }, [supabaseClient, isAuthReady, userId]);
-
-
-            // Add a new case
-            const handleAddCase = async () => {
-                if (!newCaseName.trim() || !newAssignee.trim() || !supabaseClient) {
-                    showCustomAlert('案件名と担当者は必須です。');
-                    return;
-                }
-                try {
-                    const casesCollectionRef = window.supabaseClient.from('cases');
-                    await window.supabaseClient.from('cases').insert({
-                        name: newCaseName,
-                        assignee: newAssignee,
-                        status: newStatus,
-                        startDate: newStartDate,
-                        dueDate: newDueDate,
-                        basePrice: newBasePrice ? parseFloat(newBasePrice) : 0, // Convert to number
-                        pdfUrl: newPdfUrl, // Main case PDF URL
-                        events: newEvents, // Events now include completed status, pdfUrl, and imageUrl from local state
-                        createdAt: window.supabaseClient.from('cases').insert({
-                            data: {
-                                name: newCaseName,
-                                assignee: newAssignee,
-                                status: newStatus,
-                                startDate: newStartDate,
-                                dueDate: newDueDate,
-                                basePrice: newBasePrice ? parseFloat(newBasePrice) : 0, // Convert to number
-                                pdfUrl: newPdfUrl, // Main case PDF URL
-                                events: newEvents, // Events now include completed status, pdfUrl, and imageUrl from local state
-                                createdAt: new Date(),
-                                createdBy: userId
-                            }
-                        }),
-                        createdBy: userId
-                    });
-                    setNewCaseName('');
-                    setNewAssignee('');
-                    setNewStatus('未着手');
-                    setNewStartDate('');
-                    setNewDueDate('');
-                    setNewBasePrice('');
-                    setNewPdfUrl('');
-                    setNewEvents([]); // Clear event list
-                    setNewEventDate(''); // Clear
-                    setNewEventDescription(''); // Clear
-                    setNewEvent_Type('提出'); // Reset type - '予定'から'提出'に変更
-                    setNewEventPdfUrl(''); // Clear event PDF URL
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                    setError("案件の追加に失敗しました。");
-                }
-            };
-
-            // Add event to new case form (local state only)
-            const handleAddNewEvent = () => {
-                if (newEventDate && newEventDescription && newEvent_Type) {
-                    setNewEvents([...newEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
-                    setNewEventDate('');
-                    setNewEventDescription('');
-                    setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
-                    setNewEventPdfUrl(''); // Clear event PDF URL
-                } else {
-                    showCustomAlert('イベントの日付、内容、種類は必須です。');
-                }
-            };
-
-            // Remove event from new case form (local state only)
-            const handleRemoveNewEvent = (indexToRemove) => {
-                setNewEvents(newEvents.filter((_, i) => i !== indexToRemove));
-            };
-
-            // Toggle completion for event in new case form (local state only)
-            const handleToggleNewEventCompletion = (indexToToggle) => {
-                const updatedEvents = [...newEvents];
-                if (updatedEvents[indexToToggle]) {
-                    updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
-                    setNewEvents(updatedEvents);
-                }
-            };
-
-
-            // Function to open case edit page (full screen)
-            const openEditPage = (caseItem) => {
-                setEditingCase(caseItem);
-                setEditedCaseName(caseItem.name);
-                setEditedAssignee(caseItem.assignee);
-                setEditedStatus(caseItem.status);
-                setEditedStartDate(caseItem.startDate || '');
-                setEditedDueDate(caseItem.dueDate || '');
-                setEditedBasePrice(caseItem.basePrice || '');
-                setEditedPdfUrl(caseItem.pdfUrl || '');
-                setEditedEvents(caseItem.events || []);
-                setNewEventDate(''); // Clear for new input in edit page
-                setNewEventDescription(''); // Clear for new input in edit page
-                setNewEvent_Type('提出'); // Reset type for new input in edit page - '予定'から'提出'に変更
-                setNewEventPdfUrl(''); // Clear event PDF URL for new input in edit page
-                setCurrentView('edit'); // Change view to 'edit'
-            };
-
-            // Function to close edit page and return to list view
-            const closeEditPage = () => {
-                setCurrentView('list'); // Change view back to 'list'
-                setEditingCase(null); // Clear editing case
-            };
-
-
-            // Add event to edited case (local state only)
-            const handleAddEditedEvent = () => {
-                if (newEventDate && newEventDescription && newEvent_Type) {
-                    setEditedEvents([...editedEvents, { date: newEventDate, description: newEventDescription, type: newEvent_Type, pdfUrl: newEventPdfUrl, completed: false }]);
-                    setNewEventDate('');
-                    setNewEventDescription('');
-                    setNewEvent_Type('提出'); // Reset to default - '予定'から'提出'に変更
-                    setNewEventPdfUrl(''); // Clear event PDF URL
-                } else {
-                    showCustomAlert('イベントの日付、内容、種類は必須です。');
-                }
-            };
-
-            // Remove event from edited case (local state only)
-            const handleRemoveEditedEvent = (indexToRemove) => {
-                setEditedEvents(editedEvents.filter((_, index) => index !== indexToRemove));
-            };
-
-            // Toggle completion for event in edited case (local state only)
-            const handleToggleEditedEventCompletion = (indexToToggle) => {
-                const updatedEvents = [...editedEvents];
-                if (updatedEvents[indexToToggle]) {
-                    updatedEvents[indexToToggle].completed = !updatedEvents[indexToToggle].completed;
-                    setEditedEvents(updatedEvents);
-                }
-            };
-
-
-            // Update case (persists all local changes to Firestore)
-            const handleUpdateCase = async () => {
-                if (!editingCase || !editedCaseName.trim() || !editedAssignee.trim() || !supabaseClient) {
-                    showCustomAlert('案件名と担当者は必須です。');
-                    return;
-                }
-                try {
-                    const caseDocRef = window.supabaseClient.from('cases').update(editingCase.id).set({
-                        name: editedCaseName,
-                        assignee: editedAssignee,
-                        status: editedStatus,
-                        startDate: editedStartDate,
-                        dueDate: editedDueDate,
-                        basePrice: editedBasePrice ? parseFloat(editedBasePrice) : 0,
-                        pdfUrl: editedPdfUrl,
-                        events: editedEvents, // Save updated event list (including completed status, pdfUrl, and imageUrl)
-                        updatedAt: new Date() // Record update timestamp
-                    });
-                    closeEditPage(); // Close edit page after update
-                } catch (e) {
-                    console.error("Error updating document: ", e);
-                    setError("案件の更新に失敗しました。");
-                }
-            };
-
-
+            // ローディング中または認証準備中の場合
             if (!isAuthReady || loading) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-700">
-                        <p>読み込み中...</p>
+                    <div className="flex items-center justify-center min-h-screen">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+                            <p className="mt-4">読み込み中...</p>
+                        </div>
                     </div>
                 );
             }
 
+            // エラーがある場合
             if (error) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center bg-red-100 text-red-700">
-                        <p>エラーが発生しました: {error}</p>
+                    <div className="flex items-center justify-center min-h-screen">
+                        <div className="text-center text-red-600">
+                            <p>エラーが発生しました：{error}</p>
+                        </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8 font-sans">
-                    {/* Main Application Content (Login form removed) */}
-                    {currentView === 'list' && (
-                        // メインのリストビューコンテンツ
-                        <div className="max-w-4xl w-full bg-white p-8 rounded-xl shadow-lg">
-                            <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">デザイン案件管理</h1>
-
-                            {/* ユーザーID表示 */}
-                            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-blue-800 flex justify-between items-center">
-                                <div>
-                                    <p className="font-semibold">現在のユーザーID:</p>
-                                    <p className="break-all">{userId}</p>
-                                    <p className="mt-2">このIDは、他のユーザーと案件を共有する際に必要になる場合があります。</p>
-                                </div>
-                            </div>
-
-                            {/* 案件追加フォーム */}
-                            <div className="mb-8 p-6 bg-blue-50 rounded-xl shadow-md">
-                                <h2 className="text-2xl font-semibold text-blue-700 mb-4">新しい案件を追加</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label htmlFor="newCaseName" className="block text-sm font-medium text-gray-700 mb-1">案件名</label>
-                                        <input
-                                            type="text"
-                                            id="newCaseName"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newCaseName}
-                                            onChange={(e) => setNewCaseName(e.target.value)}
-                                            placeholder="例: 株式会社ABC ロゴデザイン"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="newAssignee" className="block text-sm font-medium text-gray-700 mb-1">担当者</label>
-                                        <input
-                                            type="text"
-                                            id="newAssignee"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newAssignee}
-                                            onChange={(e) => setNewAssignee(e.target.value)}
-                                            placeholder="例: 山田太郎"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="newStartDate" className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
-                                        <input
-                                            type="date"
-                                            id="newStartDate"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newStartDate}
-                                            onChange={(e) => setNewStartDate(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="newDueDate" className="block text-sm font-medium text-gray-700 mb-1">完了予定日</label>
-                                        <input
-                                            type="date"
-                                            id="newDueDate"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newDueDate}
-                                            onChange={(e) => setNewDueDate(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="newStatus" className="block text-sm font-medium text-gray-700 mb-1">ステータス</label>
-                                        <select
-                                            id="newStatus"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newStatus}
-                                            onChange={(e) => setNewStatus(e.target.value)}
-                                        >
-                                            <option value="未着手">未着手</option>
-                                            <option value="進行中">進行中</option>
-                                            <option value="確認待ち">確認待ち</option>
-                                            <option value="完了">完了</option>
-                                            <option value="キャンセル">キャンセル</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="newBasePrice" className="block text-sm font-medium text-gray-700 mb-1">基本料金 (円)</label>
-                                        <input
-                                            type="number"
-                                            id="newBasePrice"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newBasePrice}
-                                            onChange={(e) => setNewBasePrice(e.target.value)}
-                                            placeholder="例: 50000"
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label htmlFor="newPdfUrl" className="block text-sm font-medium text-gray-700 mb-1">PDF URL (添付用)</label>
-                                        <input
-                                            type="url"
-                                            id="newPdfUrl"
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newPdfUrl}
-                                            onChange={(e) => setNewPdfUrl(e.target.value)}
-                                            placeholder="例: https://example.com/document.pdf"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* タイムラインイベント追加セクション (新規案件用) */}
-                                <div className="mb-4 p-4 bg-blue-100 rounded-md">
-                                    <h3 className="text-lg font-semibold text-blue-800 mb-2">タイムラインイベントを追加</h3>
-                                    <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                                        <input
-                                            type="date"
-                                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newEventDate}
-                                            onChange={(e) => setNewEventDate(e.target.value)}
-                                        />
-                                        <input
-                                            type="text"
-                                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newEventDescription}
-                                            onChange={(e) => setNewEventDescription(e.target.value)}
-                                            placeholder="例: 校正提出済み"
-                                        />
-                                        <input
-                                            type="url"
-                                            className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newEventPdfUrl}
-                                            onChange={(e) => setNewEventPdfUrl(e.target.value)}
-                                            placeholder="イベント関連PDF URL (任意)"
-                                        />
-                                        <select
-                                            className="flex-shrink-0 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            value={newEvent_Type}
-                                            onChange={(e) => setNewEvent_Type(e.target.value)}
-                                        >
-                                            <option value="提出">提出</option> {/* '予定'から'提出'に変更 */}
-                                            <option value="タスク">タスク</option>
-                                        </select>
-                                        <button
-                                            onClick={handleAddNewEvent}
-                                            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-300"
-                                        >
-                                            追加
-                                        </button>
-                                    </div>
-                                    <div className="mt-3">
-                                        {newEvents.length > 0 ? (
-                                            <ul className="list-disc list-inside text-sm text-gray-700">
-                                                {newEvents.map((event, index) => (
-                                                    <li key={index} className={`flex justify-between items-center py-1 ${event.completed ? 'line-through text-gray-500' : ''}`}>
-                                                        <span>
-                                                            [{event.type}] {event.date}: {event.description}
-                                                            {event.pdfUrl && <a href={event.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs ml-2">PDF</a>}
-                                                        </span>
-                                                        <div>
-                                                            <button
-                                                                onClick={() => handleToggleNewEventCompletion(index)}
-                                                                className={`ml-2 px-2 py-1 rounded-md text-xs font-semibold ${event.completed ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                                            >
-                                                                {event.completed ? '完了済み' : '完了'}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRemoveNewEvent(index)}
-                                                                className="text-red-500 hover:text-red-700 ml-2"
-                                                            >
-                                                                &times;
-                                                            </button>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-500">イベントはまだありません。</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleAddCase}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    案件を追加
-                                </button>
-                            </div>
-
-                            {/* 表示モード切り替えボタン */}
-                            <div className="mb-6 flex justify-center space-x-4">
-                                <button
-                                    onClick={() => setListDisplayMode('card')}
-                                    className={`py-2 px-6 rounded-lg font-semibold transition duration-300 ${
-                                        listDisplayMode === 'card' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    カード表示
-                                </button>
-                                <button
-                                    onClick={() => setListDisplayMode('table')}
-                                    className={`py-2 px-6 rounded-lg font-semibold transition duration-300 ${
-                                        listDisplayMode === 'table' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    テーブル表示
-                                </button>
-                                <button
-                                    onClick={() => setListDisplayMode('timeline')}
-                                    className={`py-2 px-6 rounded-lg font-semibold transition duration-300 ${
-                                        listDisplayMode === 'timeline' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    タイムライン表示
-                                </button>
-                                <button
-                                    onClick={() => setListDisplayMode('calendar')}
-                                    className={`py-2 px-6 rounded-lg font-semibold transition duration-300 ${
-                                        listDisplayMode === 'calendar' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                >
-                                    カレンダー表示
-                                </button>
-                            </div>
-
-                            {/* 案件リスト / テーブル / タイムライン / カレンダー */}
-                            {listDisplayMode === 'card' && (
-                                <div className="p-6 bg-white rounded-xl shadow-md">
-                                    <h2 className="text-2xl font-semibold text-gray-700 mb-4">案件一覧 (カード表示)</h2>
-                                    {cases.length === 0 ? (
-                                        <p className="text-gray-500 text-center">案件がありません。新しい案件を追加してください。</p>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {cases.map((caseItem) => (
-                                                <div key={caseItem.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                                                    <h3 className="text-lg font-semibold text-gray-800 mb-2">{caseItem.name}</h3>
-                                                    <p className="text-gray-600 text-sm">担当者: {caseItem.assignee}</p>
-                                                    <p className="text-gray-600 text-sm">ステータス: <span className={`font-medium ${
-                                                        caseItem.status === '完了' ? 'text-green-600' :
-                                                        caseItem.status === '進行中' ? 'text-blue-600' :
-                                                        caseItem.status === '確認待ち' ? 'text-yellow-600' :
-                                                        caseItem.status === 'キャンセル' ? 'text-red-600' : 'text-gray-600'
-                                                    }`}>{caseItem.status}</span></p>
-                                                    {caseItem.startDate && <p className="text-gray-600 text-xs">開始日: {caseItem.startDate}</p>}
-                                                    {caseItem.dueDate && <p className="text-gray-600 text-xs">完了予定日: {caseItem.dueDate}</p>}
-                                                    {caseItem.basePrice > 0 && <p className="text-gray-600 text-xs">基本料金: {caseItem.basePrice.toLocaleString()}円</p>}
-                                                    {caseItem.pdfUrl && (
-                                                        <p className="text-gray-600 text-xs">
-                                                            PDF: <a href={caseItem.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">表示</a>
-                                                        </p>
-                                                    )}
-                                                    {caseItem.events && caseItem.events.length > 0 && (
-                                                        <div className="mt-2 text-xs text-gray-600">
-                                                            <strong>イベント:</strong>
-                                                            <ul className="list-disc list-inside">
-                                                                {caseItem.events.map((event, idx) => (
-                                                                    <li key={idx} className={`${event.completed ? 'line-through text-gray-500' : ''}`}>
-                                                                        [{event.type}] {event.date}: {event.description}
-                                                                        {event.pdfUrl && <a href={event.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs ml-2">PDF</a>}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {caseItem.createdAt && (
-                                                        <p className="text-gray-500 text-xs mt-auto pt-2">
-                                                            作成日: {new Date(caseItem.createdAt.toDate()).toLocaleString()}
-                                                        </p>
-                                                    )}
-                                                    {caseItem.createdBy && (
-                                                        <p className="text-gray-500 text-xs">
-                                                            作成者ID: <span className="break-all">{caseItem.createdBy}</span>
-                                                        </p>
-                                                    )}
-                                                    <button
-                                                        onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
-                                                        className="mt-4 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-sm"
-                                                    >
-                                                        詳細
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {listDisplayMode === 'table' && (
-                                <div className="p-6 bg-white rounded-xl shadow-md">
-                                    <h2 className="text-2xl font-semibold text-gray-700 mb-4">案件一覧 (テーブル表示)</h2>
-                                    {cases.length === 0 ? (
-                                        <p className="text-gray-500 text-center">案件がありません。新しい案件を追加してください。</p>
-                                    ) : (
-                                        <div className="w-full overflow-x-auto">
-                                            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                                                <thead>
-                                                    <tr className="bg-gray-100 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"><th className="py-3 px-4 border-b">案件名</th><th className="py-3 px-4 border-b">担当者</th><th className="py-3 px-4 border-b">ステータス</th><th className="py-3 px-4 border-b">基本料金</th><th className="py-3 px-4 border-b">タスク</th><th className="py-3 px-4 border-b">操作</th></tr>
-                                                </thead>
-                                                <tbody>
-                                                    {cases.map((caseItem) => (
-                                                        <tr key={caseItem.id} className="border-b border-gray-200 hover:bg-gray-50"><td className="py-3 px-4 text-sm text-gray-800 font-semibold">{caseItem.name}</td><td className="py-3 px-4 text-sm text-gray-600">{caseItem.assignee}</td><td className="py-3 px-4 text-sm text-gray-600">
-                                                                <span className={`font-medium ${
-                                                                    caseItem.status === '完了' ? 'text-green-600' :
-                                                                    caseItem.status === '進行中' ? 'text-blue-600' :
-                                                                    caseItem.status === '確認待ち' ? 'text-yellow-600' :
-                                                                    caseItem.status === 'キャンセル' ? 'text-red-600' : 'text-gray-600'
-                                                                }`}>{caseItem.status}</span>
-                                                            </td><td className="py-3 px-4 text-sm text-gray-600">{caseItem.basePrice ? `${caseItem.basePrice.toLocaleString()}円` : '-'}</td><td className="py-3 px-4 text-sm text-gray-600">
-                                                                {caseItem.events ? caseItem.events.length : 0} {/* イベントの数を表示 */}
-                                                            </td><td className="py-3 px-4">
-                                                                <button
-                                                                    onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
-                                                                    className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xs"
-                                                                >
-                                                                    詳細
-                                                                </button>
-                                                            </td></tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {listDisplayMode === 'timeline' && (
-                                <div className="p-6 bg-white rounded-xl shadow-md">
-                                    <h2 className="text-2xl font-semibold text-gray-700 mb-4">案件一覧 (タイムライン表示)</h2>
-                                    {/* '完了'ステータスの案件を除外して表示 */}
-                                    {cases.filter(caseItem => caseItem.status !== '完了').length === 0 ? (
-                                        <p className="text-gray-500 text-center">表示する案件がありません。</p>
-                                    ) : (
-                                        <div className="w-full overflow-x-auto space-y-4"> {/* Changed to div structure */}
-                                            {cases.filter(caseItem => caseItem.status !== '完了').map((caseItem) => (
-                                                <div key={caseItem.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                                    <div className="font-semibold text-gray-800 mb-2">{caseItem.name}</div>
-                                                    <TimelineBar
-                                                        startDate={caseItem.startDate}
-                                                        dueDate={caseItem.dueDate}
-                                                        status={caseItem.status}
-                                                        events={caseItem.events}
-                                                    />
-                                                    <div className="mt-4 text-right">
-                                                        <button
-                                                            onClick={() => openEditPage(caseItem)} // openEditPage を呼び出す
-                                                            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 text-xs"
-                                                        >
-                                                            詳細
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {listDisplayMode === 'calendar' && (
-                                <ListCalendarView cases={cases} openEditPage={openEditPage} />
-                            )}
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-3xl font-bold mb-8">案件管理アプリ</h1>
+                    {currentView === 'list' ? (
+                        // リストビューのコンテンツ
+                        <div>
+                            {/* リスト表示のコンテンツ */}
                         </div>
-                    )}
-
-                    {currentView === 'edit' && editingCase && (
-                        // The edit view content should be directly within the main App div's styling
-                        <div className="max-w-4xl w-full bg-white p-8 rounded-xl shadow-lg">
-                            {/* パンくずリスト */}
-                            <nav className="text-sm font-medium text-gray-500 mb-6">
-                                <ol className="list-none p-0 inline-flex">
-                                    <li className="flex items-center">
-                                        <a href="#" onClick={closeEditPage} className="text-blue-600 hover:text-blue-800">TOP</a>
-                                        <span className="mx-2">/</span>
-                                    </li>
-                                    <li className="flex items-center">
-                                        <span className="text-gray-700">案件編集</span>
-                                    </li>
-                                </ol>
-                            </nav>
-
-                            <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">案件を編集</h1>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label htmlFor="editedCaseName" className="block text-sm font-medium text-gray-700 mb-1">案件名</label>
-                                    <input
-                                        type="text"
-                                        id="editedCaseName"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedCaseName}
-                                        onChange={(e) => setEditedCaseName(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="editedAssignee" className="block text-sm font-medium text-gray-700 mb-1">担当者</label>
-                                    <input
-                                        type="text"
-                                        id="editedAssignee"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedAssignee}
-                                        onChange={(e) => setEditedAssignee(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="editedStartDate" className="block text-sm font-medium text-gray-700 mb-1">開始日</label>
-                                    <input
-                                        type="date"
-                                        id="editedStartDate"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedStartDate}
-                                        onChange={(e) => setEditedStartDate(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="editedDueDate" className="block text-sm font-medium text-gray-700 mb-1">完了予定日</label>
-                                    <input
-                                        type="date"
-                                        id="editedDueDate"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedDueDate}
-                                        onChange={(e) => setEditedDueDate(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="editedStatus" className="block text-sm font-medium text-gray-700 mb-1">ステータス</label>
-                                    <select
-                                        id="editedStatus"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedStatus}
-                                        onChange={(e) => setEditedStatus(e.target.value)}
-                                    >
-                                        <option value="未着手">未着手</option>
-                                        <option value="進行中">進行中</option>
-                                        <option value="確認待ち">確認待ち</option>
-                                        <option value="完了">完了</option>
-                                        <option value="キャンセル">キャンセル</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="editedBasePrice" className="block text-sm font-medium text-gray-700 mb-1">基本料金 (円)</label>
-                                    <input
-                                        type="number"
-                                        id="editedBasePrice"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedBasePrice}
-                                        onChange={(e) => setEditedBasePrice(e.target.value)}
-                                    />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label htmlFor="editedPdfUrl" className="block text-sm font-medium text-gray-700 mb-1">PDF URL (添付用)</label>
-                                    <input
-                                        type="url"
-                                        id="editedPdfUrl"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={editedPdfUrl}
-                                        onChange={(e) => setEditedPdfUrl(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* タイムラインイベント追加セクション (編集モーダル用) */}
-                            <div className="mb-4 p-4 bg-blue-100 rounded-md">
-                                <h3 className="text-lg font-semibold text-blue-800 mb-2">タイムラインイベント</h3>
-                                <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                                    <input
-                                        type="date"
-                                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={newEventDate}
-                                        onChange={(e) => setNewEventDate(e.target.value)}
-                                    />
-                                    <input
-                                        type="text"
-                                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={newEventDescription}
-                                        onChange={(e) => setNewEventDescription(e.target.value)}
-                                        placeholder="例: 校正提出済み"
-                                    />
-                                    <input
-                                        type="url"
-                                        className="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={newEventPdfUrl}
-                                        onChange={(e) => setNewEventPdfUrl(e.target.value)}
-                                        placeholder="イベント関連PDF URL (任意)"
-                                    />
-                                    <select
-                                        className="flex-shrink-0 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                        value={newEvent_Type}
-                                        onChange={(e) => setNewEvent_Type(e.target.value)}
-                                    >
-                                        <option value="提出">提出</option> {/* '予定'から'提出'に変更 */}
-                                        <option value="タスク">タスク</option>
-                                    </select>
-                                    <button
-                                        onClick={handleAddEditedEvent}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-300"
-                                    >
-                                        追加
-                                    </button>
-                                </div>
-                                <div className="mt-3">
-                                    {editedEvents.length > 0 ? (
-                                        <ul className="list-disc list-inside text-sm text-gray-700">
-                                            {editedEvents.map((event, index) => (
-                                                <li key={index} className={`flex justify-between items-center py-1 ${event.completed ? 'line-through text-gray-500' : ''}`}>
-                                                    <span>
-                                                        [{event.type}] {event.date}: {event.description}
-                                                        {event.pdfUrl && <a href={event.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-xs ml-2">PDF</a>}
-                                                    </span>
-                                                    <div>
-                                                        <button
-                                                            onClick={() => handleToggleEditedEventCompletion(index)}
-                                                            className={`ml-2 px-2 py-1 rounded-md text-xs font-semibold ${event.completed ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                                        >
-                                                            {event.completed ? '完了済み' : '完了'}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRemoveEditedEvent(index)}
-                                                            className="text-red-500 hover:text-red-700 ml-2"
-                                                        >
-                                                            &times;
-                                                        </button>
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-sm text-gray-500">イベントはまだありません。</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={handleUpdateCase}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                            >
-                                案件を更新
-                            </button>
-
-                            {/* 案件詳細時系列ビュー (編集画面では非表示) */}
-                            {editingCase && (
-                                <div className="mt-6 p-4 bg-gray-50 rounded-lg shadow-inner">
-                                    <h3 className="text-lg font-semibold text-gray-700 mb-2 text-center">案件のタイムライン表示</h3>
-                                    <TimelineBar
-                                        startDate={editingCase.startDate}
-                                        dueDate={editingCase.dueDate}
-                                        status={editingCase.status}
-                                        events={editedEvents} // 編集中のイベントリストを渡す
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* カスタムアラート */}
-                    {showAlert && (
-                        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full relative">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">お知らせ</h3>
-                                <p className="text-gray-700 mb-6">{alertMessage}</p>
-                                <button
-                                    onClick={() => setShowAlert(false)}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out"
-                                >
-                                    閉じる
-                                </button>
-                            </div>
+                    ) : (
+                        // 編集ビューのコンテンツ
+                        <div>
+                            {/* 編集フォームのコンテンツ */}
                         </div>
                     )}
                 </div>
