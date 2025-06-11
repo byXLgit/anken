@@ -31,13 +31,13 @@
     <!-- Supabase Client Initialization -->
     <script type="module">
         // Supabaseクライアントの初期化
-        const supabase = supabase.createClient(
+        const supabase = window.supabase.createClient(
             window.__supabase_config.supabaseUrl,
             window.__supabase_config.supabaseKey
         );
 
         // グローバルスコープに公開
-        window.supabase = supabase;
+        window.supabaseClient = supabase;
     </script>
 
     <!-- React and ReactDOM from CDN -->
@@ -534,23 +534,34 @@
           // Supabase初期化と認証
           useEffect(() => {
             try {
-              if (!window.supabase) {
+              if (!window.supabaseClient) {
                 throw new Error("Supabaseクライアントが初期化されていません。");
               }
 
-              setSupabaseClient(window.supabase);
+              setSupabaseClient(window.supabaseClient);
               
               // 匿名認証
               const signInAnonymously = async () => {
                 try {
-                  const { data: { user }, error } = await window.supabase.auth.signInWithPassword({
+                  // 匿名ユーザーとしてサインイン
+                  const { data: { user }, error } = await window.supabaseClient.auth.signInWithPassword({
                     email: 'anonymous@example.com',
                     password: 'anonymous'
                   });
                   
-                  if (error) throw error;
+                  if (error) {
+                    // 匿名ユーザーが存在しない場合は新規作成
+                    const { data: { user: newUser }, error: signUpError } = await window.supabaseClient.auth.signUp({
+                      email: 'anonymous@example.com',
+                      password: 'anonymous'
+                    });
+                    
+                    if (signUpError) throw signUpError;
+                    setUserId(newUser.id);
+                  } else {
+                    setUserId(user.id);
+                  }
                   
-                  setUserId(user.id);
                   setIsAuthReady(true);
                   setLoading(false);
                 } catch (err) {
